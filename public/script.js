@@ -5,16 +5,35 @@ const ws = new WebSocket(wsUrl);
 // WebRTC
 const configuration = null;
 let connection = null;
+let dataChannel = null;
 
 async function InitWebRTC() {
-    connection = new RTCPeerConnection(configuration);
-    const dataChannel = connection.createDataChannel("control", {
+    connection = new RTCPeerConnection();
+
+    // data channel
+    dataChannel = connection.createDataChannel("control", {
         ordered: false,
         maxRetransmits: 0
     });
+    dataChannel.onopen = () => {
+        if (dataChannel) {
+            console.log("dataChannel клиента принял статус " + dataChannel.readyState);
+        }
+    }
+    dataChannel.onclose = () => {
+        if (dataChannel) {
+            console.log("dataChannel клиента принял статус " + dataChannel.readyState);
+        }
+    }
+    dataChannel.onerror = (event) => {
+        console.error(event);
+    }
+    dataChannel.onmesasge = (message) => {
+        // stuff
+    }
 
     // ice
-    connection.oncandidate = (event) => {
+    connection.onicecandidate = (event) => {
         if (event.candidate) {
             ws.send(JSON.stringify({
                 type: "webrtc-ice-candidate",
@@ -45,7 +64,7 @@ ws.onmessage = async (event) => {
     const data = JSON.parse(event.data);
 
     if (data.type === "webrtc-answer") {
-        console.log(data.sdp);
+        //console.log(data.sdp);
         await connection.setRemoteDescription(data.sdp);
     }
     if (data.type === "webrtc-ice-candidate") {
@@ -60,13 +79,20 @@ ws.onclose = () => {
 
 // sending commands
 document.getElementById('btnForward').addEventListener('click', () => {
-    if (ws.readyState === WebSocket.OPEN) {
+    /*if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ command: 'throttle', value: 100 }));
+    }*/
+    //console.log(dataChannel && dataChannel.readyState == "open");
+    if (dataChannel && dataChannel.readyState == "open") {
+        dataChannel.send(JSON.stringify({ command: 'throttle', value: 100 }));
     }
 });
 
 document.getElementById('btnStop').addEventListener('click', () => {
-    if (ws.readyState === WebSocket.OPEN) {
+    /*if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ command: 'throttle', value: 0 }));
+    }*/
+    if (dataChannel && dataChannel.readyState == "open") {
+        dataChannel.send(JSON.stringify({ command: 'throttle', value: 0 }));
     }
 });

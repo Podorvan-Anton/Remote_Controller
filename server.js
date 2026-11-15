@@ -27,14 +27,35 @@ wss.on('connection', function connection(ws) {
     ws.send(JSON.stringify({event: "offer", data: "offer"}));
 
     ws.on('message', async function incoming(message) {
-        //console.log('Получено сообщение от клиента:', message.toString());
         const data = JSON.parse(message);
 
         if (data.type === "webrtc-offer") {
-            connection = new RTCPeerConnection(configuration);
+            connection = new RTCPeerConnection();
+            let dataChannel = null;
+
+            // data channel
+            connection.ondatachannel = (event) => {
+                dataChannel = event.channel;
+                dataChannel.onopen = () => {
+                    if (dataChannel) {
+                        console.log("dataChannel сервера принял статус " + dataChannel.readyState);
+                    }
+                }
+                dataChannel.onclose = () => {
+                    if (dataChannel) {
+                        console.log("dataChannel сервера принял статус " + dataChannel.readyState);
+                    }
+                }
+                dataChannel.onerror = (event) => {
+                    console.error(event);
+                }
+                dataChannel.onmessage = (message) => {
+                    console.log('Получено сообщение от клиента:', message.data);
+                }
+            }
 
             // ice
-            connection.oncandidate = (event) => {
+            connection.onicecandidate = (event) => {
                 if (event.candidate) {
                     ws.send(JSON.stringify({
                         type: "webrtc-ice-candidate",
@@ -57,8 +78,6 @@ wss.on('connection', function connection(ws) {
         if (data.type === "webrtc-ice-candidate" && connection) {
             await connection.addIceCandidate(data.candidate);
         }
-
-        //ws.send(`Сервер получил: ${data}`);
     });
 
     ws.on('close', function close() {
